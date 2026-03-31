@@ -1,0 +1,49 @@
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+  // Global: selected device serial number
+  function getDeviceSn() {
+    return document.getElementById('deviceSelect')?.value || '';
+  }
+
+  // Load devices into dropdown
+  async function loadDevices() {
+    const res = await fetch('/api/device');
+    const devices = await res.json();
+    const sel = document.getElementById('deviceSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Select Device --</option>';
+    devices.forEach(d => {
+      const status = d.online ? '(Online)' : '(Offline)';
+      const opt = document.createElement('option');
+      opt.value = d.serialNum;
+      opt.textContent = `${d.serialNum} ${status}`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Alert helper
+  function showAlert(msg, type = 'success') {
+    const container = document.getElementById('alertArea');
+    if (!container) return;
+    container.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+      ${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    setTimeout(() => { container.innerHTML = ''; }, 5000);
+  }
+
+  // Generic API call helper
+  async function apiCall(url, options = {}) {
+    try {
+      const res = await fetch(url, options);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    } catch (e) {
+      showAlert(e.message, 'danger');
+      throw e;
+    }
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', loadDevices);
+</script>

@@ -1,0 +1,22 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-3">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/"><i class="bi bi-fingerprint"></i> AMS - Biometric System</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link <%= page === 'staff' ? 'active' : '' %>" href="/"><i class="bi bi-people"></i> Staff List</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= page === 'records' ? 'active' : '' %>" href="/logRecords"><i class="bi bi-clock-history"></i> Log Records</a>
+        </li>
+      </ul>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <label class="text-white-50 mb-0 small">Device:</label>
+        <select id="deviceSelect" class="form-select form-select-sm" style="width:200px;"></select>
+      </div>
+    </div>
+  </div>
+</nav>

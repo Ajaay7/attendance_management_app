@@ -1,0 +1,42 @@
+{
+  "name": "attendance_node_app",
+  "version": "1.0.0",
+  "main": "src/app.ts",
+  "scripts": {
+    "dev": "tsx watch src/app.ts",
+    "start": "tsx src/app.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Attendance Management System - Node.js Express with WebSocket for AI Face Recognition Devices",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.45.2",
+    "ejs": "^5.0.1",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "multer": "^2.1.1",
+    "pg": "^8.16.3",
+    "uuid": "^13.0.0",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/ejs": "^3.1.5",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.20.0",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

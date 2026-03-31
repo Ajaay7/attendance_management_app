@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Log Records - AMS</title>
+  <%- include('partials/head') %>
+</head>
+<body>
+  <%- include('partials/navbar', { page: 'records' }) %>
+
+  <div class="container-fluid px-4">
+    <div id="alertArea"></div>
+
+    <!-- ── Action Buttons ── -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="action-bar">
+          <button class="btn btn-outline-primary btn-sm" onclick="cmdGetAllLog()"><i class="bi bi-cloud-download"></i> Collect All Logs</button>
+          <button class="btn btn-outline-success btn-sm" onclick="cmdGetNewLog()"><i class="bi bi-cloud-arrow-down"></i> Collect New Logs</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="exportRecords()"><i class="bi bi-file-earmark-spreadsheet"></i> Export CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Records Table ── -->
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-container">
+          <table class="table table-hover table-striped mb-0" id="recordsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Enroll ID</th>
+                <th>Record Time</th>
+                <th>Mode</th>
+                <th>In/Out</th>
+                <th>Event</th>
+                <th>Device</th>
+                <th>Temperature</th>
+                <th>Image</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <span id="pageInfo" class="text-muted small"></span>
+        <nav><ul class="pagination pagination-sm mb-0" id="pageNav"></ul></nav>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <script>
+    let currentPage = 1;
+
+    const modeMap = { 0: 'Fingerprint', 1: 'Card', 2: 'Password', 3: 'Card', 8: 'Face' };
+    const inOutMap = { 0: '<span class="badge bg-success">IN</span>', 1: '<span class="badge bg-danger">OUT</span>' };
+
+    async function loadRecords(page = 1) {
+      currentPage = page;
+      const data = await apiCall(`/api/records?page=${page}&limit=50`);
+      renderTable(data);
+      renderPagination(data.pagination);
+    }
+
+    function formatDate(d) {
+      if (!d) return '-';
+      const dt = new Date(d);
+      return dt.toLocaleString('en-IN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('recordsBody');
+      tbody.innerHTML = '';
+      data.data.forEach((r, i) => {
+        const num = (data.pagination.page - 1) * data.pagination.limit + i + 1;
+        const imgHtml = r.image
+          ? `<img src="/img/${r.image}" class="photo-thumb" onerror="this.src=''">`
+          : '<span class="text-muted">-</span>';
+        const temp = r.temperature ? `${r.temperature.toFixed(1)}` : '-';
+
+        tbody.innerHTML += `<tr>
+          <td>${num}</td>
+          <td>${r.enrollId}</td>
+          <td>${formatDate(r.recordTime)}</td>
+          <td>${modeMap[r.mode] || r.mode}</td>
+          <td>${inOutMap[r.inOut] || r.inOut}</td>
+          <td>${r.event}</td>
+          <td><code>${r.deviceSerialNum || '-'}</code></td>
+          <td>${temp}</td>
+          <td>${imgHtml}</td>
+        </tr>`;
+      });
+    }
+
+    function renderPagination(pg) {
+      document.getElementById('pageInfo').textContent = `Page ${pg.page} of ${pg.totalPages} (${pg.total} records)`;
+      const nav = document.getElementById('pageNav');
+      nav.innerHTML = '';
+      const addBtn = (label, p, disabled = false) => {
+        nav.innerHTML += `<li class="page-item ${disabled ? 'disabled' : ''} ${p === pg.page ? 'active' : ''}"><a class="page-link" href="#" onclick="event.preventDefault();loadRecords(${p})">${label}</a></li>`;
+      };
+      addBtn('First', 1, pg.page === 1);
+      addBtn('Prev', Math.max(1, pg.page - 1), pg.page === 1);
+      for (let i = Math.max(1, pg.page - 2); i <= Math.min(pg.totalPages, pg.page + 2); i++) addBtn(i, i);
+      addBtn('Next', Math.min(pg.totalPages, pg.page + 1), pg.page === pg.totalPages);
+      addBtn('Last', pg.totalPages, pg.page === pg.totalPages);
+    }
+
+    async function cmdGetAllLog() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/getAllLog?deviceSn=${sn}`);
+      showAlert('Collect all logs command sent');
+    }
+
+    async function cmdGetNewLog() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/getNewLog?deviceSn=${sn}`);
+      showAlert('Collect new logs command sent');
+    }
+
+    function exportRecords() {
+      const table = document.getElementById('recordsTable');
+      const rows = table.querySelectorAll('tr');
+      let csv = '';
+      rows.forEach(row => {
+        const cols = row.querySelectorAll('th, td');
+        const line = Array.from(cols).map(c => `"${c.textContent.trim()}"`).join(',');
+        csv += line + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'attendance_records.csv';
+      a.click();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => loadRecords(1));
+  </script>
+</body>
+</html>

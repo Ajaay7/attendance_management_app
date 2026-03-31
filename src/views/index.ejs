@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Staff List - AMS</title>
+  <%- include('partials/head') %>
+</head>
+<body>
+  <%- include('partials/navbar', { page: 'staff' }) %>
+
+  <div class="container-fluid px-4">
+    <div id="alertArea"></div>
+
+    <!-- ── Action Buttons ── -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <h6 class="card-title text-muted mb-2"><i class="bi bi-gear"></i> Device Operations</h6>
+        <div class="action-bar">
+          <button class="btn btn-outline-primary btn-sm" onclick="cmdGetUserList()"><i class="bi bi-download"></i> Get User List</button>
+          <button class="btn btn-outline-primary btn-sm" onclick="cmdGetUserInfo()"><i class="bi bi-person-badge"></i> Get User Info</button>
+          <button class="btn btn-outline-success btn-sm" onclick="cmdSetPersonToDevice()"><i class="bi bi-upload"></i> Push Users to Device</button>
+          <button class="btn btn-outline-success btn-sm" onclick="cmdSetUsernameToDevice()"><i class="bi bi-person-lines-fill"></i> Push Usernames</button>
+          <button class="btn btn-outline-warning btn-sm" onclick="cmdInitSystem()"><i class="bi bi-arrow-counterclockwise"></i> Init System</button>
+          <button class="btn btn-outline-info btn-sm" onclick="cmdGetDeviceInfo()"><i class="bi bi-info-circle"></i> Device Info</button>
+          <button class="btn btn-outline-info btn-sm" onclick="cmdOpenDoorModal()"><i class="bi bi-door-open"></i> Open Door</button>
+          <button class="btn btn-outline-info btn-sm" onclick="cmdGetDevLock()"><i class="bi bi-lock"></i> Get Dev Lock</button>
+          <button class="btn btn-outline-info btn-sm" onclick="cmdGetUserLockModal()"><i class="bi bi-shield-lock"></i> Get User Lock</button>
+          <button class="btn btn-outline-danger btn-sm" onclick="cmdCleanAdmin()"><i class="bi bi-person-x"></i> Clean Admin</button>
+          <button class="btn btn-outline-danger btn-sm" onclick="cmdReboot()"><i class="bi bi-power"></i> Reboot</button>
+        </div>
+        <h6 class="card-title text-muted mb-2 mt-2"><i class="bi bi-shield-check"></i> Access Control</h6>
+        <div class="action-bar">
+          <button class="btn btn-outline-secondary btn-sm" onclick="showAccessDayModal()"><i class="bi bi-calendar-day"></i> Set Access Day</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="showAccessWeekModal()"><i class="bi bi-calendar-week"></i> Set Access Week</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="showLockGroupModal()"><i class="bi bi-diagram-3"></i> Set Lock Group</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="showUserLockModal()"><i class="bi bi-key"></i> Authorize User</button>
+        </div>
+        <h6 class="card-title text-muted mb-2 mt-2"><i class="bi bi-people"></i> User Management</h6>
+        <div class="action-bar">
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal"><i class="bi bi-person-plus"></i> Add User</button>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadExcelModal"><i class="bi bi-file-earmark-excel"></i> Upload Excel</button>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#downloadUserModal"><i class="bi bi-cloud-download"></i> Download User Data</button>
+          <button class="btn btn-success btn-sm" onclick="exportTable()"><i class="bi bi-file-earmark-spreadsheet"></i> Export to Excel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Staff Table ── -->
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-container">
+          <table class="table table-hover table-striped mb-0" id="empsTable">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="checkAll" onclick="toggleAll(this)"></th>
+                <th>#</th>
+                <th>Emp ID</th>
+                <th>Alias</th>
+                <th>Name</th>
+                <th>Photo</th>
+                <th>Photo Status</th>
+                <th>Level</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="empsBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <span id="pageInfo" class="text-muted small"></span>
+        <nav><ul class="pagination pagination-sm mb-0" id="pageNav"></ul></nav>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ MODALS ══════ -->
+
+  <!-- Add User Modal -->
+  <div class="modal fade" id="addUserModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-person-plus"></i> Add User</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <form id="addUserForm" enctype="multipart/form-data">
+            <div class="mb-3"><label class="form-label">User ID (Enroll ID)</label><input type="number" class="form-control" name="enrollId" required></div>
+            <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" name="name" required></div>
+            <div class="mb-3"><label class="form-label">Privilege</label>
+              <select class="form-select" name="rollId"><option value="0">User</option><option value="1">Manager</option></select>
+            </div>
+            <div class="mb-3"><label class="form-label">Photo</label><input type="file" class="form-control" name="photo" accept="image/*"></div>
+            <div class="mb-3"><label class="form-label">Alias</label><input type="text" class="form-control" name="alias"></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="submitAddUser()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Excel Modal -->
+  <div class="modal fade" id="uploadExcelModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-file-earmark-excel"></i> Upload Persons from Excel</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <form id="uploadExcelForm" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label">Excel File (.xlsx)</label>
+              <input type="file" class="form-control" name="file" accept=".xlsx,.xls" required>
+            </div>
+            <p class="text-muted small">Columns: name, enrollId, rollId, photo (optional path)</p>
+          </form>
+          <div id="uploadResult"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="submitUploadExcel()">Upload</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Download User Data Modal -->
+  <div class="modal fade" id="downloadUserModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-cloud-download"></i> Download User from Device</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Enroll ID</label><input type="number" class="form-control" id="dlEnrollId"></div>
+          <div class="mb-3"><label class="form-label">Backup Num</label>
+            <select class="form-select" id="dlBackupNum">
+              <optgroup label="Fingerprint"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option></optgroup>
+              <optgroup label="Password / Card"><option value="10">10 - Password</option><option value="11">11 - Card</option></optgroup>
+              <optgroup label="Static Face"><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option></optgroup>
+              <optgroup label="Palm"><option value="30">30</option><option value="31">31</option><option value="32">32</option><option value="33">33</option><option value="34">34</option><option value="35">35</option><option value="36">36</option><option value="37">37</option></optgroup>
+              <optgroup label="Photo"><option value="50" selected>50 - Photo (Base64)</option></optgroup>
+            </select>
+          </div>
+          <p class="text-muted small">0-9: Fingerprint | 10: Password | 11: Card | 20-27: Static Face | 30-37: Palm | 50: Photo</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="submitDownloadUser()">Fetch from Device</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Open Door Modal -->
+  <div class="modal fade" id="openDoorModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-door-open"></i> Open Door</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Door Number</label>
+            <select class="form-select" id="doorNum"><option value="1">Door 1</option><option value="2">Door 2</option><option value="3">Door 3</option><option value="4">Door 4</option></select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-success" onclick="cmdOpenDoor()"><i class="bi bi-door-open"></i> Open</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Get User Lock Modal -->
+  <div class="modal fade" id="getUserLockModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-shield-lock"></i> Get User Lock</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Enroll ID</label><input type="number" class="form-control" id="getUserLockEnrollId"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="cmdGetUserLock()">Fetch</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Set Access Day Modal -->
+  <div class="modal fade" id="accessDayModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-calendar-day"></i> Set Access Day (Time Zones)</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Zone Index (1-8)</label>
+            <select class="form-select" id="adZoneIndex"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select>
+          </div>
+          <div class="row mb-2"><div class="col"><label class="form-label small">Section 1 Start</label><input type="text" class="form-control form-control-sm timepick" id="adStart1" placeholder="06:00"></div><div class="col"><label class="form-label small">End</label><input type="text" class="form-control form-control-sm timepick" id="adEnd1" placeholder="07:00"></div></div>
+          <div class="row mb-2"><div class="col"><label class="form-label small">Section 2 Start</label><input type="text" class="form-control form-control-sm timepick" id="adStart2" placeholder="08:30"></div><div class="col"><label class="form-label small">End</label><input type="text" class="form-control form-control-sm timepick" id="adEnd2" placeholder="12:00"></div></div>
+          <div class="row mb-2"><div class="col"><label class="form-label small">Section 3 Start</label><input type="text" class="form-control form-control-sm timepick" id="adStart3" placeholder="13:00"></div><div class="col"><label class="form-label small">End</label><input type="text" class="form-control form-control-sm timepick" id="adEnd3" placeholder="17:00"></div></div>
+          <div class="row mb-2"><div class="col"><label class="form-label small">Section 4 Start</label><input type="text" class="form-control form-control-sm timepick" id="adStart4" placeholder="18:00"></div><div class="col"><label class="form-label small">End</label><input type="text" class="form-control form-control-sm timepick" id="adEnd4" placeholder="21:00"></div></div>
+          <div class="row mb-2"><div class="col"><label class="form-label small">Section 5 Start</label><input type="text" class="form-control form-control-sm timepick" id="adStart5" placeholder="22:00"></div><div class="col"><label class="form-label small">End</label><input type="text" class="form-control form-control-sm timepick" id="adEnd5" placeholder="23:30"></div></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="submitAccessDay()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Set Access Week Modal -->
+  <div class="modal fade" id="accessWeekModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-calendar-week"></i> Set Access Week</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Week Index (1-8)</label>
+            <select class="form-select" id="awWeekIndex"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select>
+          </div>
+          <div class="mb-2"><label class="form-label small">Monday (Day Zone)</label><select class="form-select form-select-sm" id="awMon"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+          <div class="mb-2"><label class="form-label small">Tuesday</label><select class="form-select form-select-sm" id="awTue"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+          <div class="mb-2"><label class="form-label small">Wednesday</label><select class="form-select form-select-sm" id="awWed"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+          <div class="mb-2"><label class="form-label small">Thursday</label><select class="form-select form-select-sm" id="awThu"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+          <div class="mb-2"><label class="form-label small">Friday</label><select class="form-select form-select-sm" id="awFri"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+          <div class="mb-2"><label class="form-label small">Saturday</label><select class="form-select form-select-sm" id="awSat"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+          <div class="mb-2"><label class="form-label small">Sunday</label><select class="form-select form-select-sm" id="awSun"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="submitAccessWeek()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lock Group Modal -->
+  <div class="modal fade" id="lockGroupModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-diagram-3"></i> Set Lock Group</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-2"><label class="form-label small">Group 1</label><input type="text" class="form-control form-control-sm" id="lg1" placeholder="e.g. 1234"></div>
+          <div class="mb-2"><label class="form-label small">Group 2</label><input type="text" class="form-control form-control-sm" id="lg2"></div>
+          <div class="mb-2"><label class="form-label small">Group 3</label><input type="text" class="form-control form-control-sm" id="lg3"></div>
+          <div class="mb-2"><label class="form-label small">Group 4</label><input type="text" class="form-control form-control-sm" id="lg4"></div>
+          <div class="mb-2"><label class="form-label small">Group 5</label><input type="text" class="form-control form-control-sm" id="lg5"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="submitLockGroup()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Lock (Authorize) Modal -->
+  <div class="modal fade" id="userLockModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-key"></i> Set User Lock / Authorization</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Enroll ID</label><input type="number" class="form-control" id="ulEnrollId"></div>
+          <div class="row mb-2">
+            <div class="col"><label class="form-label small">Week Zone (Door 1)</label><select class="form-select form-select-sm" id="ulWz1"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+            <div class="col"><label class="form-label small">Group (1-9)</label><select class="form-select form-select-sm" id="ulGroup"><option value="0">0 - None</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></div>
+          </div>
+          <div class="row mb-2">
+            <div class="col"><label class="form-label small">Start Time</label><input type="text" class="form-control form-control-sm dtpick" id="ulStart" placeholder="2024-01-01 00:00:00"></div>
+            <div class="col"><label class="form-label small">End Time</label><input type="text" class="form-control form-control-sm dtpick" id="ulEnd" placeholder="2099-12-31 23:59:00"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" onclick="submitUserLock()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+
+  <script>
+    let currentPage = 1;
+
+    // ── Load staff list ──
+    async function loadStaff(page = 1) {
+      currentPage = page;
+      const data = await apiCall(`/api/emps?page=${page}&limit=20`);
+      renderTable(data);
+      renderPagination(data.pagination);
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('empsBody');
+      tbody.innerHTML = '';
+      data.data.forEach((p, i) => {
+        const num = (data.pagination.page - 1) * data.pagination.limit + i + 1;
+        const photoHtml = p.imagePath
+          ? `<img src="/img/${p.imagePath}" class="photo-thumb" onerror="this.src=''">`
+          : '<span class="text-muted">-</span>';
+        const photoStatus = p.imagePath ? '<span class="text-success">Yes</span>' : '<span class="text-danger">No</span>';
+        const level = p.rollId === 1 ? 'Manager' : 'General Staff';
+
+        tbody.innerHTML += `<tr>
+          <td><input type="checkbox" class="emp-check" value="${p.id}"></td>
+          <td>${num}</td>
+          <td>${p.id}</td>
+          <td>${p.alias || '-'}</td>
+          <td>${p.name}</td>
+          <td>${photoHtml}</td>
+          <td>${photoStatus}</td>
+          <td>${level}</td>
+          <td>
+            <button class="btn btn-danger btn-action" onclick="deleteFromDevice(${p.id})"><i class="bi bi-trash"></i> Del</button>
+            <button class="btn btn-info btn-action text-white" onclick="uploadToDevice(${p.id})"><i class="bi bi-upload"></i> Push</button>
+          </td>
+        </tr>`;
+      });
+    }
+
+    function renderPagination(pg) {
+      document.getElementById('pageInfo').textContent = `Page ${pg.page} of ${pg.totalPages} (${pg.total} records)`;
+      const nav = document.getElementById('pageNav');
+      nav.innerHTML = '';
+      const addBtn = (label, p, disabled = false) => {
+        nav.innerHTML += `<li class="page-item ${disabled ? 'disabled' : ''} ${p === pg.page ? 'active' : ''}"><a class="page-link" href="#" onclick="event.preventDefault();loadStaff(${p})">${label}</a></li>`;
+      };
+      addBtn('First', 1, pg.page === 1);
+      addBtn('Prev', Math.max(1, pg.page - 1), pg.page === 1);
+      for (let i = Math.max(1, pg.page - 2); i <= Math.min(pg.totalPages, pg.page + 2); i++) addBtn(i, i);
+      addBtn('Next', Math.min(pg.totalPages, pg.page + 1), pg.page === pg.totalPages);
+      addBtn('Last', pg.totalPages, pg.page === pg.totalPages);
+    }
+
+    function toggleAll(el) {
+      document.querySelectorAll('.emp-check').forEach(cb => cb.checked = el.checked);
+    }
+
+    // ── Add User ──
+    async function submitAddUser() {
+      const form = document.getElementById('addUserForm');
+      const fd = new FormData(form);
+      const res = await apiCall('/api/addPerson', { method: 'POST', body: fd });
+      showAlert(res.message);
+      bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+      form.reset();
+      loadStaff(currentPage);
+    }
+
+    // ── Upload Excel ──
+    async function submitUploadExcel() {
+      const form = document.getElementById('uploadExcelForm');
+      const fd = new FormData(form);
+      const res = await apiCall('/api/uploadPerson', { method: 'POST', body: fd });
+      document.getElementById('uploadResult').innerHTML = `<div class="alert alert-success">${res.message}</div>`;
+      loadStaff(1);
+    }
+
+    // ── Download User from device ──
+    async function submitDownloadUser() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      const eid = document.getElementById('dlEnrollId').value;
+      const bn = document.getElementById('dlBackupNum').value;
+      await apiCall(`/api/sendGetUserInfo?deviceSn=${sn}&enrollId=${eid}&backupnum=${bn}`);
+      showAlert('Download user command sent');
+      bootstrap.Modal.getInstance(document.getElementById('downloadUserModal')).hide();
+    }
+
+    // ── Per-row actions ──
+    async function deleteFromDevice(enrollId) {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      if (!confirm(`Delete user ${enrollId} from device ${sn}?`)) return;
+      await apiCall(`/api/deletePersonFromDevice?deviceSn=${sn}&enrollId=${enrollId}`);
+      showAlert('Delete command queued');
+    }
+
+    async function uploadToDevice(enrollId) {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/setOneUser?deviceSn=${sn}&enrollId=${enrollId}`);
+      showAlert('Push user command queued');
+    }
+
+    // ── Device commands ──
+    async function cmdGetUserList() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/device?deviceSn=${sn}`); // uses getUserList endpoint
+      showAlert('Get user list command sent');
+    }
+
+    async function cmdGetUserInfo() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/getDeviceInfo?deviceSn=${sn}`);
+      showAlert('Get user info command sent');
+    }
+
+    async function cmdSetPersonToDevice() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      if (!confirm('Push ALL users to device? This may take time.')) return;
+      await apiCall(`/api/setPersonToDevice?deviceSn=${sn}`);
+      showAlert('All users push queued');
+    }
+
+    async function cmdSetUsernameToDevice() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/setUsernameToDevice?deviceSn=${sn}`);
+      showAlert('Username push queued');
+    }
+
+    async function cmdInitSystem() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      if (!confirm('WARNING: This will delete ALL users and logs from device!')) return;
+      await apiCall(`/api/initSystem?deviceSn=${sn}`);
+      showAlert('Init system command sent', 'warning');
+    }
+
+    async function cmdGetDeviceInfo() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/getDeviceInfo?deviceSn=${sn}`);
+      showAlert('Device info request sent');
+    }
+
+    function cmdOpenDoorModal() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      new bootstrap.Modal(document.getElementById('openDoorModal')).show();
+    }
+
+    async function cmdOpenDoor() {
+      const sn = getDeviceSn();
+      const dn = document.getElementById('doorNum').value;
+      await apiCall(`/api/openDoor?deviceSn=${sn}&doorNum=${dn}`);
+      showAlert('Open door command sent');
+      bootstrap.Modal.getInstance(document.getElementById('openDoorModal')).hide();
+    }
+
+    async function cmdGetDevLock() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      await apiCall(`/api/getDevLock?deviceSn=${sn}`);
+      showAlert('Get device lock command sent');
+    }
+
+    function cmdGetUserLockModal() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      new bootstrap.Modal(document.getElementById('getUserLockModal')).show();
+    }
+
+    async function cmdGetUserLock() {
+      const sn = getDeviceSn();
+      const eid = document.getElementById('getUserLockEnrollId').value;
+      const data = await apiCall(`/api/getUserLock?deviceSn=${sn}&enrollId=${eid}`);
+      showAlert(`User lock data: ${JSON.stringify(data)}`);
+      bootstrap.Modal.getInstance(document.getElementById('getUserLockModal')).hide();
+    }
+
+    async function cmdCleanAdmin() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      if (!confirm('Clean all admin users?')) return;
+      await apiCall(`/api/cleanAdmin?deviceSn=${sn}`);
+      showAlert('Clean admin command sent');
+    }
+
+    async function cmdReboot() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      if (!confirm('Reboot device? It will restart immediately.')) return;
+      await apiCall(`/api/reboot?deviceSn=${sn}`);
+      showAlert('Reboot command sent', 'warning');
+    }
+
+    // ── Access Control modals ──
+    function showAccessDayModal() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      new bootstrap.Modal(document.getElementById('accessDayModal')).show();
+    }
+
+    async function submitAccessDay() {
+      const sn = getDeviceSn();
+      const zi = parseInt(document.getElementById('adZoneIndex').value);
+      const sections = [];
+      for (let i = 1; i <= 5; i++) {
+        const s = document.getElementById(`adStart${i}`).value;
+        const e = document.getElementById(`adEnd${i}`).value;
+        if (s && e) sections.push(`${s}~${e}`);
+      }
+      await apiCall('/api/setAccessDay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceSn: sn, dayZones: [{ zoneIndex: zi, sections }] }),
+      });
+      showAlert('Access day saved');
+      bootstrap.Modal.getInstance(document.getElementById('accessDayModal')).hide();
+    }
+
+    function showAccessWeekModal() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      new bootstrap.Modal(document.getElementById('accessWeekModal')).show();
+    }
+
+    async function submitAccessWeek() {
+      const sn = getDeviceSn();
+      const wi = parseInt(document.getElementById('awWeekIndex').value);
+      const days = ['awMon','awTue','awWed','awThu','awFri','awSat','awSun'].map(id => parseInt(document.getElementById(id).value));
+      await apiCall('/api/setAccessWeek', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceSn: sn, weekZones: [{ weekIndex: wi, days }] }),
+      });
+      showAlert('Access week saved');
+      bootstrap.Modal.getInstance(document.getElementById('accessWeekModal')).hide();
+    }
+
+    function showLockGroupModal() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      new bootstrap.Modal(document.getElementById('lockGroupModal')).show();
+    }
+
+    async function submitLockGroup() {
+      const sn = getDeviceSn();
+      const groups = [];
+      for (let i = 1; i <= 5; i++) {
+        const v = document.getElementById(`lg${i}`).value;
+        if (v) groups.push({ groupIndex: i - 1, groupValue: v });
+      }
+      await apiCall('/api/setLockGroup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceSn: sn, groups }),
+      });
+      showAlert('Lock group saved');
+      bootstrap.Modal.getInstance(document.getElementById('lockGroupModal')).hide();
+    }
+
+    function showUserLockModal() {
+      const sn = getDeviceSn();
+      if (!sn) return showAlert('Select a device first', 'warning');
+      new bootstrap.Modal(document.getElementById('userLockModal')).show();
+    }
+
+    async function submitUserLock() {
+      const sn = getDeviceSn();
+      const ul = {
+        enrollId: parseInt(document.getElementById('ulEnrollId').value),
+        weekzone: parseInt(document.getElementById('ulWz1').value),
+        group: parseInt(document.getElementById('ulGroup').value),
+        startTime: document.getElementById('ulStart').value || '2000-01-01 00:00:00',
+        endTime: document.getElementById('ulEnd').value || '2099-12-31 23:59:00',
+      };
+      await apiCall('/api/setUserLock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceSn: sn, userLocks: [ul] }),
+      });
+      showAlert('User lock saved');
+      bootstrap.Modal.getInstance(document.getElementById('userLockModal')).hide();
+    }
+
+    // ── Export table to Excel ──
+    function exportTable() {
+      const table = document.getElementById('empsTable');
+      const rows = table.querySelectorAll('tr');
+      let csv = '';
+      rows.forEach(row => {
+        const cols = row.querySelectorAll('th, td');
+        const line = Array.from(cols).map(c => `"${c.textContent.trim()}"`).join(',');
+        csv += line + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'staff_list.csv';
+      a.click();
+    }
+
+    // ── Init flatpickr ──
+    document.addEventListener('DOMContentLoaded', () => {
+      flatpickr('.timepick', { enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true });
+      flatpickr('.dtpick', { enableTime: true, dateFormat: 'Y-m-d H:i:S', time_24hr: true });
+      loadStaff(1);
+    });
+  </script>
+</body>
+</html>
