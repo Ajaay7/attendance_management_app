@@ -3,7 +3,8 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "target": "es6",
-    "moduleResolution": "node",
+    "moduleResolution": "node10",
+    "ignoreDeprecations": "6.0",
     "sourceMap": true,
     "outDir": "dist",
     "skipLibCheck": true
