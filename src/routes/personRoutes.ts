@@ -123,7 +123,7 @@ router.post("/uploadPerson", upload.single("file"), async (req: Request, res: Re
     if (photoPath && fs.existsSync(String(photoPath))) {
       const imageBuffer = fs.readFileSync(String(photoPath));
       const base64 = imageBuffer.toString("base64");
-      const fileName = saveBase64Image(base64);
+      const fileName = await saveBase64Image(base64);
 
       await db.insert(enrollInfos).values({
         enrollId: enrollId || person.id,
