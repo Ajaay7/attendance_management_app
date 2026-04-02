@@ -9,7 +9,7 @@ function ensureUploadDir() {
   }
 }
 
-export function saveBase64Image(base64Data: string): string {
+export async function saveBase64Image(base64Data: string): Promise<string> {
   ensureUploadDir();
   const fileName = `${crypto.randomUUID()}.jpg`;
   const filePath = path.join(config.upload.path, fileName);
