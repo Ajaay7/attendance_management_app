@@ -87,6 +87,8 @@
             <div class="mb-3"><label class="form-label">Privilege</label>
               <select class="form-select" name="rollId"><option value="0">User</option><option value="1">Manager</option></select>
             </div>
+            <div class="mb-3"><label class="form-label">Password</label><input type="text" class="form-control" name="password" placeholder="Optional"></div>
+            <div class="mb-3"><label class="form-label">Card Number</label><input type="text" class="form-control" name="cardNum" placeholder="Optional"></div>
             <div class="mb-3"><label class="form-label">Photo</label><input type="file" class="form-control" name="photo" accept="image/*"></div>
             <div class="mb-3"><label class="form-label">Alias</label><input type="text" class="form-control" name="alias"></div>
           </form>
@@ -110,7 +112,7 @@
               <label class="form-label">Excel File (.xlsx)</label>
               <input type="file" class="form-control" name="file" accept=".xlsx,.xls" required>
             </div>
-            <p class="text-muted small">Columns: name, enrollId, rollId, photo (optional path)</p>
+            <p class="text-muted small">Required columns: userId, name, privilege, password, cardNum, imageFileName</p>
           </form>
           <div id="uploadResult"></div>
         </div>

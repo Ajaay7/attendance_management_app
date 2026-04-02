@@ -1,6 +1,6 @@
 import WebSocket from "ws";
 import { db } from "../db/index";
-import { devices, records, enrollInfos, machineCommands } from "../db/schema";
+import { devices, records, enrollInfos, machineCommands, persons } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { wsPool } from "./pool";
 import { logger } from "../helpers/logger";
@@ -173,7 +173,7 @@ async function handleSendLog(ws: WebSocket, data: any) {
       inOut: rec.inout ?? 0,
       event: rec.event ?? 0,
       deviceSerialNum: sn,
-      temperature: rec.temp ?? null,
+      temperature: rec.temp ? Math.round((rec.temp / 10) * 10) / 10 : null,
       image: imagePath,
       verifyMode: rec.verifymode ?? null,
     });
@@ -279,11 +279,62 @@ async function handleSendQrCode(ws: WebSocket, data: any) {
 async function handleGetUserListResponse(ws: WebSocket, data: any) {
   const sn = data.sn || "";
   const count = data.count || 0;
+  const recordList = data.record || [];
 
   logger.receive(sn, `User list received: count=${count}`);
 
+  // Save each user to persons + enrollInfos tables AND queue getuserinfo to fetch full data
+  for (const rec of recordList) {
+    const enrollId = rec.enrollid;
+    const adminVal = parseInt(rec.admin) || 0;
+    const backupnum = rec.backupnum;
+
+    if (!enrollId) continue;
+
+    // Upsert into persons table
+    const existingPerson = await db.select().from(persons).where(eq(persons.id, enrollId));
+    if (existingPerson.length === 0) {
+      await db.insert(persons).values({
+        id: enrollId,
+        name: `User_${enrollId}`, // placeholder name until getuserinfo returns real name
+        rollId: adminVal,
+      });
+    }
+
+    // Upsert into enrollInfos table (basic record, full data comes from getuserinfo)
+    const existingEnroll = await db
+      .select()
+      .from(enrollInfos)
+      .where(and(eq(enrollInfos.enrollId, enrollId), eq(enrollInfos.backupnum, backupnum)));
+
+    if (existingEnroll.length === 0) {
+      await db.insert(enrollInfos).values({
+        enrollId,
+        backupnum,
+        admin: adminVal,
+        name: `User_${enrollId}`,
+      });
+    }
+
+    // Auto-queue getuserinfo command to fetch full data (photo/fingerprint/card/password)
+    const payload = {
+      cmd: "getuserinfo",
+      sn,
+      enrollid: enrollId,
+      backupnum,
+    };
+
+    await db.insert(machineCommands).values({
+      serialNum: sn,
+      commandName: "getuserinfo",
+      content: JSON.stringify(payload),
+    });
+
+    logger.info(`Queued getuserinfo for enrollId=${enrollId}, backupnum=${backupnum}`);
+  }
+
   // If there are more records, request next page
-  if (count > 0) {
+  if (count > 0 && recordList.length > 0) {
     ws.send(JSON.stringify({ cmd: "getuserlist", stn: false }));
   }
 
@@ -297,22 +348,32 @@ async function handleGetUserInfoResponse(data: any) {
   const backupnum = data.backupnum;
   const record = data.record || "";
   const name = data.name || "";
-  const admin = data.admin || 0;
+  const admin = parseInt(data.admin) || 0;
 
   if (!data.result) {
+    logger.error(`getuserinfo failed for enrollId=${enrollId}, backupnum=${backupnum}`);
     await markCommandCompleted(sn, "getuserinfo", false);
     return;
   }
 
+  logger.info(`getuserinfo received: enrollId=${enrollId}, backupnum=${backupnum}, name=${name}`);
+
   let imagePath: string | null = null;
+  let signatures: string | null = null;
+
   if (backupnum === 50 && record) {
+    // Photo (Base64) — save as image file
     try {
       imagePath = await saveBase64Image(record);
     } catch (e: any) {
       logger.error("Failed to save fetched user photo", e.message);
     }
+    signatures = record;
+  } else {
+    signatures = typeof record === "string" ? record : String(record);
   }
 
+  // Upsert enrollment info
   const existing = await db
     .select()
     .from(enrollInfos)
@@ -322,9 +383,9 @@ async function handleGetUserInfoResponse(data: any) {
     await db
       .update(enrollInfos)
       .set({
-        signatures: typeof record === "string" ? record : String(record),
-        imagePath,
-        name,
+        signatures,
+        imagePath: imagePath || existing[0].imagePath,
+        name: name || existing[0].name,
         admin,
         updatedAt: new Date(),
       })
@@ -333,11 +394,28 @@ async function handleGetUserInfoResponse(data: any) {
     await db.insert(enrollInfos).values({
       enrollId,
       backupnum,
-      signatures: typeof record === "string" ? record : String(record),
+      signatures,
       imagePath,
       name,
       admin,
     });
+  }
+
+  // Also update the person's name if we got a real name from the device
+  if (name) {
+    const existingPerson = await db.select().from(persons).where(eq(persons.id, enrollId));
+    if (existingPerson.length > 0) {
+      await db
+        .update(persons)
+        .set({ name, rollId: admin, updatedAt: new Date() })
+        .where(eq(persons.id, enrollId));
+    } else {
+      await db.insert(persons).values({
+        id: enrollId,
+        name,
+        rollId: admin,
+      });
+    }
   }
 
   await markCommandCompleted(sn, "getuserinfo", true);
@@ -358,7 +436,7 @@ async function handleGetLogResponse(ws: WebSocket, data: any) {
       inOut: rec.inout ?? 0,
       event: rec.event ?? 0,
       deviceSerialNum: sn,
-      temperature: rec.temp ?? null,
+      temperature: rec.temp ? Math.round((rec.temp / 10) * 10) / 10 : null,
       image: null,
       verifyMode: rec.verifymode ?? null,
     });

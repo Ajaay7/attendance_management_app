@@ -58,7 +58,7 @@ async function parseExcel(filePath: string): Promise<Record<string, any>[]> {
 
 // POST /addPerson - Add a single person with optional photo upload
 router.post("/addPerson", upload.single("photo"), async (req: Request, res: Response) => {
-  const { name, rollId, alias, enrollId, admin } = req.body;
+  const { name, rollId, alias, enrollId, admin, password, cardNum } = req.body;
 
   if (!name) {
     res.status(400).json({ error: "name is required" });
@@ -68,30 +68,68 @@ router.post("/addPerson", upload.single("photo"), async (req: Request, res: Resp
   const personEnrollId = parseInt(enrollId) || 0;
   const personAdmin = parseInt(admin) || 0;
 
-  // Create person
-  const [person] = await db
-    .insert(persons)
-    .values({
-      name,
-      rollId: parseInt(rollId) || 0,
-      alias: alias || null,
-    })
-    .returning();
+  // Check if person already exists (match Flask behavior)
+  const existingPerson = personEnrollId
+    ? await db.select().from(persons).where(eq(persons.id, personEnrollId))
+    : [];
 
-  // If photo provided, create enrollment info with face data (backupnum=50)
-  if (req.file) {
-    const imageBuffer = fs.readFileSync(req.file.path);
-    const base64 = imageBuffer.toString("base64");
+  let person: any;
+  if (existingPerson.length === 0) {
+    const [newPerson] = await db
+      .insert(persons)
+      .values({
+        ...(personEnrollId ? { id: personEnrollId } : {}),
+        name,
+        rollId: parseInt(rollId) || 0,
+        alias: alias || null,
+      })
+      .returning();
+    person = newPerson;
+  } else {
+    person = existingPerson[0];
+  }
 
+  const eid = personEnrollId || person.id;
+
+  // Password enrollment (backupnum=10) — matches Flask
+  if (password) {
     await db.insert(enrollInfos).values({
-      enrollId: personEnrollId || person.id,
-      backupnum: 50,
-      imagePath: req.file.filename,
-      signatures: base64,
+      enrollId: eid,
+      backupnum: 10,
+      signatures: String(password),
       name,
       admin: personAdmin,
     });
   }
+
+  // Card enrollment (backupnum=11) — matches Flask
+  if (cardNum) {
+    await db.insert(enrollInfos).values({
+      enrollId: eid,
+      backupnum: 11,
+      signatures: String(cardNum),
+      name,
+      admin: personAdmin,
+    });
+  }
+
+  // Photo enrollment (backupnum=50) — Flask always creates this record
+  let imagePath = "";
+  let base64 = "";
+  if (req.file) {
+    const imageBuffer = fs.readFileSync(req.file.path);
+    base64 = imageBuffer.toString("base64");
+    imagePath = req.file.filename;
+  }
+
+  await db.insert(enrollInfos).values({
+    enrollId: eid,
+    backupnum: 50,
+    imagePath: imagePath || null,
+    signatures: base64 || null,
+    name,
+    admin: personAdmin,
+  });
 
   res.status(201).json({ message: "Person added", person });
 });
@@ -105,40 +143,91 @@ router.post("/uploadPerson", upload.single("file"), async (req: Request, res: Re
 
   const rows = await parseExcel(req.file.path);
 
-  let added = 0;
+  let successCount = 0;
+  let failureCount = 0;
+  const failedEntries: { userId: string; name: string }[] = [];
+
   for (const row of rows) {
-    const name = row.name || row.Name || "";
-    const enrollId = parseInt(row.enrollId || row.EnrollId || row.enrollid || "0");
-    const rollId = parseInt(row.rollId || row.RollId || "0");
+    try {
+      const name = String(row.name || row.Name || "").trim();
+      const userId = String(row.userId || row.enrollId || row.EnrollId || row.enrollid || "").trim();
+      const privilege = String(row.privilege || row.rollId || row.RollId || "0").trim();
 
-    if (!name) continue;
+      if (!name || !userId) {
+        throw new Error("Missing mandatory fields");
+      }
 
-    const [person] = await db
-      .insert(persons)
-      .values({ name, rollId })
-      .returning();
+      const enrollId = parseInt(userId);
+      const rollId = parseInt(privilege) || 0;
 
-    // If a photo path column exists in Excel, read and store
-    const photoPath = row.photo || row.Photo || "";
-    if (photoPath && fs.existsSync(String(photoPath))) {
-      const imageBuffer = fs.readFileSync(String(photoPath));
-      const base64 = imageBuffer.toString("base64");
-      const fileName = await saveBase64Image(base64);
+      // Insert person only if not exists (matches Flask)
+      const existingPerson = await db.select().from(persons).where(eq(persons.id, enrollId));
+      if (existingPerson.length === 0) {
+        await db.insert(persons).values({ id: enrollId, name, rollId }).returning();
+      }
 
+      // Password enrollment (backupnum=10)
+      const password = row.password || row.Password;
+      if (password !== undefined && password !== null && String(password).trim() !== "") {
+        await db.insert(enrollInfos).values({
+          enrollId,
+          backupnum: 10,
+          signatures: String(password).trim(),
+          name,
+          admin: 0,
+        });
+      }
+
+      // Card enrollment (backupnum=11)
+      const cardNum = row.cardNum || row.CardNum || row.cardnum;
+      if (cardNum !== undefined && cardNum !== null && String(cardNum).trim() !== "") {
+        await db.insert(enrollInfos).values({
+          enrollId,
+          backupnum: 11,
+          signatures: String(cardNum).trim(),
+          name,
+          admin: 0,
+        });
+      }
+
+      // Photo enrollment (backupnum=50) — matches Flask: imageFileName column
+      const imageFileName = String(row.imageFileName || row.photo || row.Photo || "").trim();
+      const uploadPath = config.upload.path;
+      let imagePath = "";
+      let base64 = "";
+
+      if (imageFileName && fs.existsSync(path.join(uploadPath, imageFileName))) {
+        const imageBuffer = fs.readFileSync(path.join(uploadPath, imageFileName));
+        base64 = imageBuffer.toString("base64");
+        imagePath = imageFileName;
+      }
+
+      // Always create backupnum=50 record (matches Flask)
       await db.insert(enrollInfos).values({
-        enrollId: enrollId || person.id,
+        enrollId,
         backupnum: 50,
-        imagePath: fileName,
-        signatures: base64,
+        imagePath: imagePath || null,
+        signatures: base64 || null,
         name,
         admin: 0,
       });
-    }
 
-    added++;
+      successCount++;
+    } catch (e: any) {
+      failureCount++;
+      failedEntries.push({
+        userId: String(row.userId || row.enrollId || ""),
+        name: String(row.name || row.Name || ""),
+      });
+    }
   }
 
-  res.json({ message: `${added} persons uploaded` });
+  res.json({
+    message: `${successCount} persons uploaded`,
+    successCount,
+    failureCount,
+    failedEntries,
+  });
 });
 
 // POST /deleteUsersFromExcel - Batch delete from Excel
