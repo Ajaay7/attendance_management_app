@@ -4,7 +4,7 @@ import ExcelJS from "exceljs";
 import path from "path";
 import { db } from "../db/index";
 import { persons, enrollInfos, devices } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { config } from "../config/index";
 import * as personService from "../services/personService";
 import { saveBase64Image } from "../helpers/image";
@@ -267,18 +267,46 @@ router.post("/deleteUsersFromExcel", upload.single("file"), async (req: Request,
   res.json({ message: `${deleted} persons deleted` });
 });
 
-// GET /emps - Get all employees with pagination
+// GET /emps - Get all employees with pagination (includes photo info from enrollInfos)
 router.get("/emps", async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 20;
   const offset = (page - 1) * limit;
 
+  // Get all persons
   const allPersons = await db.select().from(persons);
   const total = allPersons.length;
   const paged = allPersons.slice(offset, offset + limit);
 
+  // For the paged results, fetch photo enrollment (backupnum=50) to get imagePath
+  const personIds = paged.map((p) => p.id);
+  let photoMap: Record<number, string | null> = {};
+
+  if (personIds.length > 0) {
+    const photoEnrolls = await db
+      .select({ enrollId: enrollInfos.enrollId, imagePath: enrollInfos.imagePath })
+      .from(enrollInfos)
+      .where(
+        and(
+          eq(enrollInfos.backupnum, 50),
+          sql`${enrollInfos.enrollId} IN (${sql.join(personIds.map((id) => sql`${id}`), sql`, `)})`
+        )
+      );
+    for (const pe of photoEnrolls) {
+      if (pe.imagePath) {
+        photoMap[pe.enrollId] = pe.imagePath;
+      }
+    }
+  }
+
+  // Merge photo data into person records
+  const dataWithPhotos = paged.map((p) => ({
+    ...p,
+    imagePath: photoMap[p.id] || null,
+  }));
+
   res.json({
-    data: paged,
+    data: dataWithPhotos,
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   });
 });
