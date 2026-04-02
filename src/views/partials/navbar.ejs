@@ -12,10 +12,16 @@
         <li class="nav-item">
           <a class="nav-link <%= page === 'records' ? 'active' : '' %>" href="/logRecords"><i class="bi bi-clock-history"></i> Log Records</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link <%= page === 'reports' ? 'active' : '' %>" href="/reports"><i class="bi bi-bar-chart-line"></i> Reports</a>
+        </li>
       </ul>
       <div class="ms-auto d-flex align-items-center gap-2">
         <label class="text-white-50 mb-0 small">Device:</label>
         <select id="deviceSelect" class="form-select form-select-sm" style="width:200px;"></select>
+        <button class="btn btn-sm btn-outline-light" onclick="doLogout()" title="Logout">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
       </div>
     </div>
   </div>

@@ -58,7 +58,7 @@ async function parseExcel(filePath: string): Promise<Record<string, any>[]> {
 
 // POST /addPerson - Add a single person with optional photo upload
 router.post("/addPerson", upload.single("photo"), async (req: Request, res: Response) => {
-  const { name, rollId, alias, enrollId, admin, password, cardNum } = req.body;
+  const { name, rollId, alias, enrollId, admin, password, cardNum, empId } = req.body;
 
   if (!name) {
     res.status(400).json({ error: "name is required" });
@@ -80,6 +80,7 @@ router.post("/addPerson", upload.single("photo"), async (req: Request, res: Resp
       .values({
         ...(personEnrollId ? { id: personEnrollId } : {}),
         name,
+        empId: empId ? String(empId).trim() : null,
         rollId: parseInt(rollId) || 0,
         alias: alias || null,
       })
@@ -160,10 +161,17 @@ router.post("/uploadPerson", upload.single("file"), async (req: Request, res: Re
       const enrollId = parseInt(userId);
       const rollId = parseInt(privilege) || 0;
 
+      // empId from Excel (optional column)
+      const empIdVal = row.empId || row.EmpId || row.emp_id || "";
+      const empIdStr = String(empIdVal).trim() || null;
+
       // Insert person only if not exists (matches Flask)
       const existingPerson = await db.select().from(persons).where(eq(persons.id, enrollId));
       if (existingPerson.length === 0) {
-        await db.insert(persons).values({ id: enrollId, name, rollId }).returning();
+        await db.insert(persons).values({ id: enrollId, name, rollId, empId: empIdStr }).returning();
+      } else if (empIdStr) {
+        // Update empId if provided and person already exists
+        await db.update(persons).set({ empId: empIdStr }).where(eq(persons.id, enrollId));
       }
 
       // Password enrollment (backupnum=10)
@@ -393,6 +401,33 @@ router.get("/deletePersonFromDevice", async (req: Request, res: Response) => {
 
   await personService.deleteUserFromDevice(deviceSn, enrollId, backupnum);
   res.json({ message: "Delete user command queued", deviceSn, enrollId });
+});
+
+// PATCH /updatePerson - Update person details (empId, name, alias) from UI
+router.patch("/updatePerson", async (req: Request, res: Response) => {
+  const { id, empId, name, alias } = req.body;
+  const personId = parseInt(id);
+
+  if (!personId) {
+    res.status(400).json({ error: "Person id is required" });
+    return;
+  }
+
+  const existing = await db.select().from(persons).where(eq(persons.id, personId));
+  if (existing.length === 0) {
+    res.status(404).json({ error: "Person not found" });
+    return;
+  }
+
+  const updates: Record<string, any> = { updatedAt: new Date() };
+  if (empId !== undefined) updates.empId = String(empId).trim() || null;
+  if (name !== undefined && name.trim()) updates.name = name.trim();
+  if (alias !== undefined) updates.alias = alias.trim() || null;
+
+  await db.update(persons).set(updates).where(eq(persons.id, personId));
+
+  const [updated] = await db.select().from(persons).where(eq(persons.id, personId));
+  res.json({ message: "Person updated", person: updated });
 });
 
 // GET /enrollInfo - Get all enrollment information

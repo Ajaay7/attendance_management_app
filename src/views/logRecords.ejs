@@ -29,7 +29,9 @@
             <thead>
               <tr>
                 <th>#</th>
-                <th>Enroll ID</th>
+                <th>Terminal ID</th>
+                <th>Emp ID</th>
+                <th>Name</th>
                 <th>Record Time</th>
                 <th>Mode</th>
                 <th>In/Out</th>
@@ -81,9 +83,13 @@
           : '<span class="text-muted">-</span>';
         const temp = r.temperature ? `${r.temperature.toFixed(1)}` : '-';
 
+        const empIdHtml = r.empId ? `<span class="badge bg-primary">${r.empId}</span>` : '<span class="text-muted">-</span>';
+
         tbody.innerHTML += `<tr>
           <td>${num}</td>
           <td>${r.enrollId}</td>
+          <td>${empIdHtml}</td>
+          <td>${r.personName || '-'}</td>
           <td>${formatDate(r.recordTime)}</td>
           <td>${modeMap[r.mode] || r.mode}</td>
           <td>${inOutMap[r.inOut] || r.inOut}</td>

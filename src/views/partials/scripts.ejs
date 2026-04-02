@@ -9,6 +9,7 @@
   // Load devices into dropdown
   async function loadDevices() {
     const res = await fetch('/api/device');
+    if (res.status === 401) { window.location.href = '/login'; return; }
     const devices = await res.json();
     const sel = document.getElementById('deviceSelect');
     if (!sel) return;
@@ -31,17 +32,27 @@
     setTimeout(() => { container.innerHTML = ''; }, 5000);
   }
 
-  // Generic API call helper
+  // Generic API call helper — redirects to /login on 401
   async function apiCall(url, options = {}) {
     try {
       const res = await fetch(url, options);
+      if (res.status === 401) {
+        window.location.href = '/login';
+        throw new Error('Session expired');
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
       return data;
     } catch (e) {
-      showAlert(e.message, 'danger');
+      if (e.message !== 'Session expired') showAlert(e.message, 'danger');
       throw e;
     }
+  }
+
+  // Logout
+  async function doLogout() {
+    await fetch('/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
   }
 
   // Initialize on page load

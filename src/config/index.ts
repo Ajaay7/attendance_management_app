@@ -13,4 +13,10 @@ export const config = {
   upload: {
     path: process.env.UPLOAD_PATH || "./uploads/pictures",
   },
+  auth: {
+    masterApiKey: process.env.MASTER_API_KEY || "",
+    jwtSecret: process.env.JWT_SECRET || "change-me",
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || "8h",
+    externalApiKey: process.env.API_KEY_EXTERNAL || "",
+  },
 };

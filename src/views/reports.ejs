@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Reports - AMS</title>
+  <%- include('partials/head') %>
+  <style>
+    .report-card { transition: box-shadow .2s; cursor: pointer; }
+    .report-card:hover { box-shadow: 0 4px 16px rgba(13,110,253,.2); }
+    .summary-badge { font-size: 1.4rem; font-weight: 700; }
+    .monthly-table td, .monthly-table th { padding: 4px 6px; font-size: 0.78rem; text-align: center; }
+    .monthly-table th:nth-child(1),
+    .monthly-table th:nth-child(2),
+    .monthly-table th:nth-child(3) { text-align: left; }
+    .monthly-table td:nth-child(1),
+    .monthly-table td:nth-child(2),
+    .monthly-table td:nth-child(3) { text-align: left; }
+    .cell-P { background: #c6efce; color: #006100; font-weight: 600; }
+    .cell-A { background: #ffc7ce; color: #9c0006; }
+    .preview-container { max-height: 65vh; overflow: auto; }
+  </style>
+</head>
+<body>
+  <%- include('partials/navbar', { page: 'reports' }) %>
+
+  <div class="container-fluid px-4">
+    <div id="alertArea"></div>
+
+    <!-- Report Type Tabs -->
+    <ul class="nav nav-tabs mb-3" id="reportTabs">
+      <li class="nav-item"><button class="nav-link active" data-tab="attendance" onclick="switchTab('attendance',this)"><i class="bi bi-table"></i> Attendance Records</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="daily" onclick="switchTab('daily',this)"><i class="bi bi-calendar-day"></i> Daily Report</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="monthly" onclick="switchTab('monthly',this)"><i class="bi bi-calendar-month"></i> Monthly Summary</button></li>
+    </ul>
+
+    <!-- ── Attendance Records Tab ── -->
+    <div id="tab-attendance">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title text-muted"><i class="bi bi-funnel"></i> Filters</h6>
+          <div class="row g-2">
+            <div class="col-md-2"><label class="form-label small">Start Date</label><input type="text" class="form-control form-control-sm dtpick2" id="attStartDate" placeholder="YYYY-MM-DD"></div>
+            <div class="col-md-2"><label class="form-label small">End Date</label><input type="text" class="form-control form-control-sm dtpick2" id="attEndDate" placeholder="YYYY-MM-DD"></div>
+            <div class="col-md-2"><label class="form-label small">Terminal ID</label><input type="number" class="form-control form-control-sm" id="attEnrollId" placeholder="All"></div>
+            <div class="col-md-2"><label class="form-label small">Emp ID</label><input type="text" class="form-control form-control-sm" id="attEmpId" placeholder="All"></div>
+            <div class="col-md-2"><label class="form-label small">Device</label><input type="text" class="form-control form-control-sm" id="attDevice" placeholder="All"></div>
+            <div class="col-md-2 d-flex align-items-end gap-1">
+              <button class="btn btn-primary btn-sm flex-fill" onclick="previewAttendance()"><i class="bi bi-eye"></i> Preview</button>
+              <button class="btn btn-success btn-sm" onclick="downloadAttendance('xlsx')" title="Excel"><i class="bi bi-file-excel"></i></button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="downloadAttendance('csv')" title="CSV"><i class="bi bi-filetype-csv"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="attPreview" class="card" style="display:none;">
+        <div class="card-body p-0">
+          <div class="preview-container">
+            <table class="table table-striped table-hover mb-0 small" id="attTable">
+              <thead><tr><th>#</th><th>Terminal ID</th><th>Emp ID</th><th>Name</th><th>Record Time</th><th>Mode</th><th>In/Out</th><th>Device</th><th>Temp</th></tr></thead>
+              <tbody id="attBody"></tbody>
+            </table>
+          </div>
+          <div class="card-footer text-muted small" id="attFooter"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Daily Report Tab ── -->
+    <div id="tab-daily" style="display:none;">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title text-muted"><i class="bi bi-funnel"></i> Options</h6>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3"><label class="form-label small">Date</label><input type="text" class="form-control form-control-sm dtpick2" id="dailyDate" placeholder="Today"></div>
+            <div class="col-md-auto d-flex gap-1">
+              <button class="btn btn-primary btn-sm" onclick="previewDaily()"><i class="bi bi-eye"></i> Preview</button>
+              <button class="btn btn-success btn-sm" onclick="downloadDaily()" title="Download Excel"><i class="bi bi-file-excel"></i> Download Excel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Summary Cards -->
+      <div class="row g-3 mb-3" id="dailySummaryCards" style="display:none;">
+        <div class="col-md-4">
+          <div class="card text-center border-success">
+            <div class="card-body py-2">
+              <div class="text-muted small">Present</div>
+              <div class="summary-badge text-success" id="dailyPresent">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card text-center border-danger">
+            <div class="card-body py-2">
+              <div class="text-muted small">Absent</div>
+              <div class="summary-badge text-danger" id="dailyAbsent">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card text-center border-primary">
+            <div class="card-body py-2">
+              <div class="text-muted small">Total</div>
+              <div class="summary-badge text-primary" id="dailyTotal">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="dailyPreview" class="card" style="display:none;">
+        <div class="card-body p-0">
+          <div class="preview-container">
+            <table class="table table-striped table-hover mb-0 small">
+              <thead><tr><th>#</th><th>Terminal ID</th><th>Emp ID</th><th>Name</th><th>Status</th><th>First In</th><th>Last Out</th><th>Punches</th></tr></thead>
+              <tbody id="dailyBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Monthly Summary Tab ── -->
+    <div id="tab-monthly" style="display:none;">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title text-muted"><i class="bi bi-funnel"></i> Options</h6>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-2"><label class="form-label small">Year</label>
+              <input type="number" class="form-control form-control-sm" id="monthlyYear" value="<%= new Date().getFullYear() %>">
+            </div>
+            <div class="col-md-2"><label class="form-label small">Month</label>
+              <select class="form-select form-select-sm" id="monthlyMonth">
+                <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+              </select>
+            </div>
+            <div class="col-md-auto d-flex gap-1">
+              <button class="btn btn-primary btn-sm" onclick="previewMonthly()"><i class="bi bi-eye"></i> Preview</button>
+              <button class="btn btn-success btn-sm" onclick="downloadMonthly()" title="Download Excel"><i class="bi bi-file-excel"></i> Download Excel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="monthlyPreview" class="card" style="display:none;">
+        <div class="card-body p-0">
+          <div class="preview-container">
+            <table class="table table-bordered monthly-table mb-0" id="monthlyTable">
+              <thead id="monthlyHead"></thead>
+              <tbody id="monthlyBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/scripts') %>
+  <script>
+    const modeMap = { 0: 'Fingerprint', 1: 'Card', 2: 'Password', 8: 'Face' };
+    const inOutMap = { 0: '<span class="badge bg-success">IN</span>', 1: '<span class="badge bg-danger">OUT</span>' };
+
+    function switchTab(tab, el) {
+      ['attendance', 'daily', 'monthly'].forEach(t => {
+        document.getElementById(`tab-${t}`).style.display = t === tab ? '' : 'none';
+      });
+      document.querySelectorAll('#reportTabs .nav-link').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function getAttFilters() {
+      const params = new URLSearchParams();
+      const s = document.getElementById('attStartDate').value;
+      const e = document.getElementById('attEndDate').value;
+      const eid = document.getElementById('attEnrollId').value;
+      const empId = document.getElementById('attEmpId').value;
+      const dev = document.getElementById('attDevice').value;
+      if (s) params.set('startDate', s);
+      if (e) params.set('endDate', e);
+      if (eid) params.set('enrollId', eid);
+      if (empId) params.set('empId', empId);
+      if (dev) params.set('deviceSerialNum', dev);
+      return params;
+    }
+
+    // ── Attendance Tab ──
+    async function previewAttendance() {
+      const params = getAttFilters();
+      params.set('format', 'json');
+      const data = await apiCall(`/api/reports/attendance?${params}`);
+      const tbody = document.getElementById('attBody');
+      tbody.innerHTML = '';
+      data.data.forEach((r, i) => {
+        tbody.innerHTML += `<tr>
+          <td>${i + 1}</td>
+          <td>${r.enrollId}</td>
+          <td>${r.empId ? `<span class="badge bg-primary">${r.empId}</span>` : '-'}</td>
+          <td>${r.personName || '-'}</td>
+          <td>${r.recordTime ? new Date(r.recordTime).toLocaleString() : '-'}</td>
+          <td>${modeMap[r.mode] || r.mode}</td>
+          <td>${inOutMap[r.inOut] || r.inOut}</td>
+          <td><code>${r.deviceSerialNum || '-'}</code></td>
+          <td>${r.temperature ? r.temperature.toFixed(1) : '-'}</td>
+        </tr>`;
+      });
+      document.getElementById('attFooter').textContent = `${data.total} records`;
+      document.getElementById('attPreview').style.display = '';
+    }
+
+    function downloadAttendance(fmt) {
+      const params = getAttFilters();
+      params.set('format', fmt);
+      window.open(`/api/reports/attendance?${params}`, '_blank');
+    }
+
+    // ── Daily Tab ──
+    async function previewDaily() {
+      const date = document.getElementById('dailyDate').value || new Date().toISOString().split('T')[0];
+      const data = await apiCall(`/api/reports/daily?date=${date}&format=json`);
+      document.getElementById('dailyPresent').textContent = data.summary.present;
+      document.getElementById('dailyAbsent').textContent = data.summary.absent;
+      document.getElementById('dailyTotal').textContent = data.summary.total;
+      document.getElementById('dailySummaryCards').style.display = '';
+
+      const tbody = document.getElementById('dailyBody');
+      tbody.innerHTML = '';
+      data.data.forEach((r, i) => {
+        const statusHtml = r.status === 'Present'
+          ? '<span class="badge bg-success">Present</span>'
+          : '<span class="badge bg-danger">Absent</span>';
+        tbody.innerHTML += `<tr>
+          <td>${i + 1}</td>
+          <td>${r.enrollId}</td>
+          <td>${r.empId ? `<span class="badge bg-primary">${r.empId}</span>` : '-'}</td>
+          <td>${r.name}</td>
+          <td>${statusHtml}</td>
+          <td>${r.firstIn ? new Date(r.firstIn).toLocaleTimeString() : '-'}</td>
+          <td>${r.lastOut ? new Date(r.lastOut).toLocaleTimeString() : '-'}</td>
+          <td>${r.totalRecords}</td>
+        </tr>`;
+      });
+      document.getElementById('dailyPreview').style.display = '';
+    }
+
+    function downloadDaily() {
+      const date = document.getElementById('dailyDate').value || new Date().toISOString().split('T')[0];
+      window.open(`/api/reports/daily?date=${date}&format=xlsx`, '_blank');
+    }
+
+    // ── Monthly Tab ──
+    async function previewMonthly() {
+      const year = document.getElementById('monthlyYear').value;
+      const month = document.getElementById('monthlyMonth').value;
+      const data = await apiCall(`/api/reports/monthly?year=${year}&month=${month}&format=json`);
+
+      // Build header row
+      const head = document.getElementById('monthlyHead');
+      let headHtml = '<tr><th>Terminal ID</th><th>Emp ID</th><th>Name</th>';
+      for (let d = 1; d <= data.daysInMonth; d++) headHtml += `<th>${d}</th>`;
+      headHtml += '<th class="text-success">P</th><th class="text-danger">A</th></tr>';
+      head.innerHTML = headHtml;
+
+      // Build data rows
+      const tbody = document.getElementById('monthlyBody');
+      tbody.innerHTML = '';
+      for (const r of data.data) {
+        let row = `<tr><td>${r.enrollId}</td><td>${r.empId ? `<span class="badge bg-primary" style="font-size:.7rem">${r.empId}</span>` : '-'}</td><td>${r.name}</td>`;
+        for (let d = 1; d <= data.daysInMonth; d++) {
+          const v = r.days[d];
+          row += `<td class="cell-${v}">${v}</td>`;
+        }
+        row += `<td class="fw-bold text-success">${r.totalPresent}</td><td class="fw-bold text-danger">${r.totalAbsent}</td></tr>`;
+        tbody.innerHTML += row;
+      }
+      document.getElementById('monthlyPreview').style.display = '';
+    }
+
+    function downloadMonthly() {
+      const year = document.getElementById('monthlyYear').value;
+      const month = document.getElementById('monthlyMonth').value;
+      window.open(`/api/reports/monthly?year=${year}&month=${month}&format=xlsx`, '_blank');
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+      flatpickr('.dtpick2', { dateFormat: 'Y-m-d' });
+      // Set current month in monthly tab
+      document.getElementById('monthlyMonth').value = new Date().getMonth() + 1;
+    });
+  </script>
+</body>
+</html>

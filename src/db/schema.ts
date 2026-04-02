@@ -12,7 +12,8 @@ import {
 
 // ── Person (Employee/User) ──
 export const persons = pgTable("persons", {
-  id: serial("id").primaryKey(),
+  id: serial("id").primaryKey(),           // terminal enroll ID (integer set by device)
+  empId: varchar("emp_id", { length: 100 }), // external employee/student ID (mapped by user)
   name: varchar("name", { length: 255 }).notNull(),
   rollId: integer("roll_id").notNull().default(0), // privilege level
   alias: varchar("alias", { length: 255 }),
@@ -134,5 +135,14 @@ export const userLocks = pgTable("user_locks", {
   group: integer("group").default(0), // 0: no group, 1-9: group id
   startTime: varchar("start_time", { length: 30 }).default("2000-01-01 00:00:00"),
   endTime: varchar("end_time", { length: 30 }).default("2099-12-31 23:59:00"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── App Users (for UI authentication) ──
+export const appUsers = pgTable("app_users", {
+  id: serial("id").primaryKey(),
+  username: varchar("username", { length: 100 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull().default("user"), // "admin" | "user"
   createdAt: timestamp("created_at").defaultNow(),
 });

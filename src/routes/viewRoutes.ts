@@ -1,16 +1,27 @@
 import { Router, Request, Response } from "express";
-import path from "path";
+import { requireAuthView } from "../middleware/auth";
 
 const router = Router();
 
-// Main dashboard - Staff List
-router.get("/", (_req: Request, res: Response) => {
+// Public: Login page
+router.get("/login", (req: Request, res: Response) => {
+  // If already logged in, redirect to dashboard
+  const token = req.cookies?.token;
+  if (token) return res.redirect("/");
+  res.render("login");
+});
+
+// Protected view routes
+router.get("/", requireAuthView, (_req: Request, res: Response) => {
   res.render("index");
 });
 
-// Attendance Log Records page
-router.get("/logRecords", (_req: Request, res: Response) => {
+router.get("/logRecords", requireAuthView, (_req: Request, res: Response) => {
   res.render("logRecords");
+});
+
+router.get("/reports", requireAuthView, (_req: Request, res: Response) => {
+  res.render("reports");
 });
 
 export default router;

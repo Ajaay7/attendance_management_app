@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { wsPool } from "./pool";
 import { logger } from "../helpers/logger";
 import { saveBase64Image, getCloudTime } from "../helpers/image";
+import { broadcastAttendance } from "./hrmsServer";
 
 export async function handleDeviceMessage(ws: WebSocket, rawMessage: string) {
   let data: any;
@@ -166,7 +167,7 @@ async function handleSendLog(ws: WebSocket, data: any) {
       }
     }
 
-    await db.insert(records).values({
+    const recordData = {
       enrollId: rec.enrollid || 0,
       recordTime: new Date(rec.time),
       mode: rec.mode ?? 0,
@@ -176,7 +177,28 @@ async function handleSendLog(ws: WebSocket, data: any) {
       temperature: rec.temp ? Math.round((rec.temp / 10) * 10) / 10 : null,
       image: imagePath,
       verifyMode: rec.verifymode ?? null,
-    });
+    };
+
+    await db.insert(records).values(recordData);
+
+    // Broadcast to HRMS WebSocket clients (enrich with empId/name)
+    try {
+      const personRows = await db.select({ empId: persons.empId, name: persons.name })
+        .from(persons).where(eq(persons.id, recordData.enrollId));
+      const p = personRows[0];
+      broadcastAttendance({
+        enrollId: recordData.enrollId,
+        empId: p?.empId || null,
+        personName: p?.name || null,
+        recordTime: recordData.recordTime.toISOString(),
+        mode: recordData.mode,
+        inOut: recordData.inOut,
+        event: recordData.event,
+        deviceSerialNum: recordData.deviceSerialNum,
+        temperature: recordData.temperature,
+        image: recordData.image,
+      });
+    } catch (e) { /* don't let broadcast errors affect device flow */ }
   }
 
   ws.send(
