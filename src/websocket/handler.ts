@@ -160,7 +160,7 @@ async function handleSendLog(ws: WebSocket, data: any) {
     let imagePath: string | null = null;
     if (rec.image) {
       try {
-        imagePath = saveBase64Image(rec.image);
+        imagePath = await saveBase64Image(rec.image);
       } catch (e: any) {
         logger.error("Failed to save attendance image", e.message);
       }
@@ -207,7 +207,7 @@ async function handleSendUser(ws: WebSocket, data: any) {
   if (backupnum === 50 && record) {
     // Photo - save as image file
     try {
-      imagePath = saveBase64Image(record);
+      imagePath = await saveBase64Image(record);
     } catch (e: any) {
       logger.error("Failed to save user photo", e.message);
     }
@@ -307,7 +307,7 @@ async function handleGetUserInfoResponse(data: any) {
   let imagePath: string | null = null;
   if (backupnum === 50 && record) {
     try {
-      imagePath = saveBase64Image(record);
+      imagePath = await saveBase64Image(record);
     } catch (e: any) {
       logger.error("Failed to save fetched user photo", e.message);
     }

@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
 import { config } from "../config/index";
 
 function ensureUploadDir() {
@@ -9,8 +8,9 @@ function ensureUploadDir() {
   }
 }
 
-export function saveBase64Image(base64Data: string): string {
+export async function saveBase64Image(base64Data: string): Promise<string> {
   ensureUploadDir();
+  const { v4: uuidv4 } = await import("uuid");
   const fileName = `${uuidv4()}.jpg`;
   const filePath = path.join(config.upload.path, fileName);
   const buffer = Buffer.from(base64Data, "base64");
