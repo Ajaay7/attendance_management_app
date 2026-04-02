@@ -17,7 +17,8 @@ const app = express();
 
 // View engine - EJS
 app.set("view engine", "ejs");
-app.set("views", path.resolve(__dirname, "views"));
+// Resolve views from project root (works for both tsx dev and tsc compiled dist/)
+app.set("views", path.resolve(process.cwd(), "src", "views"));
 
 // Middleware
 app.use(cors());
