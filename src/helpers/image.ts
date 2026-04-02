@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import { config } from "../config/index";
 
 function ensureUploadDir() {
@@ -11,7 +11,7 @@ function ensureUploadDir() {
 
 export function saveBase64Image(base64Data: string): string {
   ensureUploadDir();
-  const fileName = `${uuidv4()}.jpg`;
+  const fileName = `${crypto.randomUUID()}.jpg`;
   const filePath = path.join(config.upload.path, fileName);
   const buffer = Buffer.from(base64Data, "base64");
   fs.writeFileSync(filePath, buffer);
