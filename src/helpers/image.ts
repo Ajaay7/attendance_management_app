@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { config } from "../config/index";
 
 function ensureUploadDir() {
@@ -10,8 +11,7 @@ function ensureUploadDir() {
 
 export async function saveBase64Image(base64Data: string): Promise<string> {
   ensureUploadDir();
-  const { v4: uuidv4 } = await import("uuid");
-  const fileName = `${uuidv4()}.jpg`;
+  const fileName = `${crypto.randomUUID()}.jpg`;
   const filePath = path.join(config.upload.path, fileName);
   const buffer = Buffer.from(base64Data, "base64");
   fs.writeFileSync(filePath, buffer);
