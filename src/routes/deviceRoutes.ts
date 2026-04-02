@@ -3,6 +3,7 @@ import { db } from "../db/index";
 import { devices } from "../db/schema";
 import { eq } from "drizzle-orm";
 import * as commandService from "../services/commandService";
+import * as personService from "../services/personService";
 import { wsPool } from "../websocket/pool";
 
 const router = Router();
@@ -49,6 +50,32 @@ router.get("/getDeviceInfo", async (req: Request, res: Response) => {
   }
   await commandService.getDeviceInfo(deviceSn);
   res.json({ message: "getdevinfo command queued", deviceSn });
+});
+
+// GET /getUserList - Send getuserlist command to ALL devices (matches Flask /sendWs)
+router.get("/getUserList", async (req: Request, res: Response) => {
+  const deviceSn = req.query.deviceSn as string;
+  if (deviceSn) {
+    // If specific device provided, send to that device only
+    await commandService.getUserList(deviceSn);
+    res.json({ message: "getuserlist command queued", deviceSn });
+  } else {
+    // No device specified — send to ALL devices (like Flask's /sendWs)
+    await personService.getUserListFromAllDevices();
+    res.json({ message: "getuserlist command queued for all devices" });
+  }
+});
+
+// GET /collectUserInfo - Pull user enrollment data FROM device for all enrolled users
+// Matches Flask's /getUserInfo which calls get_signature2()
+router.get("/collectUserInfo", async (req: Request, res: Response) => {
+  const deviceSn = req.query.deviceSn as string;
+  if (!deviceSn) {
+    res.status(400).json({ error: "deviceSn query parameter required" });
+    return;
+  }
+  await personService.collectAllUserInfoFromDevice(deviceSn);
+  res.json({ message: "getuserinfo commands queued for all enrolled users", deviceSn });
 });
 
 // GET /openDoor - Open door

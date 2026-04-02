@@ -126,3 +126,45 @@ export async function setAllUsersToAllDevices() {
     await setAllUsersToDevice(device.serialNum);
   }
 }
+
+// Collect (pull) user info FROM device for all enrolled users
+// Matches Flask's get_signature2: creates getuserinfo command per enrollment
+export async function collectAllUserInfoFromDevice(deviceSn: string) {
+  const allPersons = await db.select().from(persons);
+
+  for (const person of allPersons) {
+    const enrollments = await db
+      .select()
+      .from(enrollInfos)
+      .where(eq(enrollInfos.enrollId, person.id));
+
+    for (const enroll of enrollments) {
+      if (enroll.enrollId && enroll.backupnum !== null) {
+        const payload = {
+          cmd: "getuserinfo",
+          enrollid: enroll.enrollId,
+          backupnum: enroll.backupnum,
+        };
+
+        await db.insert(machineCommands).values({
+          serialNum: deviceSn,
+          commandName: "getuserinfo",
+          content: JSON.stringify(payload),
+        });
+      }
+    }
+  }
+}
+
+// Send getuserlist command to ALL devices (matches Flask's /sendWs)
+export async function getUserListFromAllDevices() {
+  const allDevices = await db.select().from(devices);
+  for (const device of allDevices) {
+    const payload = { cmd: "getuserlist", stn: true };
+    await db.insert(machineCommands).values({
+      serialNum: device.serialNum,
+      commandName: "getuserlist",
+      content: JSON.stringify(payload),
+    });
+  }
+}

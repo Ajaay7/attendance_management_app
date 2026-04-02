@@ -384,15 +384,15 @@
     async function cmdGetUserList() {
       const sn = getDeviceSn();
       if (!sn) return showAlert('Select a device first', 'warning');
-      await apiCall(`/api/device?deviceSn=${sn}`); // uses getUserList endpoint
-      showAlert('Get user list command sent');
+      await apiCall(`/api/getUserList?deviceSn=${sn}`);
+      showAlert('Get user list command sent to device');
     }
 
     async function cmdGetUserInfo() {
       const sn = getDeviceSn();
       if (!sn) return showAlert('Select a device first', 'warning');
-      await apiCall(`/api/getDeviceInfo?deviceSn=${sn}`);
-      showAlert('Get user info command sent');
+      await apiCall(`/api/collectUserInfo?deviceSn=${sn}`);
+      showAlert('Collecting user info from device for all enrolled users');
     }
 
     async function cmdSetPersonToDevice() {
